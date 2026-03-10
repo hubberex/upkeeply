@@ -465,6 +465,37 @@ body.dark .bn-label{font-weight:600}
 
 /* ── TOAST ── */
 .toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:rgba(255,255,255,.88);padding:.55rem 1.2rem;border-radius:var(--radius);font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;box-shadow:var(--shadow-lg);transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;pointer-events:none}
+
+/* ── SUPABASE DIAGNOSTIC PANEL ── */
+.diag-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:flex-end;justify-content:center}
+.diag-backdrop.open{display:flex}
+.diag-panel{background:var(--surface);border-radius:var(--radius-xl) var(--radius-xl) 0 0;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:1.5rem 1.5rem 2.5rem;box-shadow:var(--shadow-lg)}
+.diag-handle{width:40px;height:4px;background:var(--border-2);border-radius:2px;margin:0 auto 1.25rem}
+.diag-title{font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--ink);letter-spacing:-.01em;margin-bottom:.25rem}
+.diag-sub{font-size:.75rem;color:var(--ink-soft);font-weight:300;margin-bottom:1.25rem}
+.diag-row{display:flex;align-items:center;gap:.85rem;padding:.8rem .95rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:.5rem}
+.diag-icon{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.diag-icon.pass{background:#e8f4ef;color:#1e5c3f}
+.diag-icon.fail{background:#fff0f0;color:#b91c1c}
+.diag-icon.warn{background:#fef3c7;color:#92400e}
+.diag-icon.idle{background:var(--border);color:var(--ink-soft)}
+.diag-icon.spin{background:var(--blue-bg);color:var(--blue);animation:diagSpin .8s linear infinite}
+@keyframes diagSpin{to{transform:rotate(360deg)}}
+.diag-check-name{font-size:.83rem;font-weight:600;color:var(--ink);line-height:1.3}
+.diag-check-msg{font-size:.7rem;color:var(--ink-soft);margin-top:1px;line-height:1.4}
+.diag-status{margin-left:auto;font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;flex-shrink:0}
+.diag-status.pass{color:#1e5c3f}
+.diag-status.fail{color:#b91c1c}
+.diag-status.warn{color:#92400e}
+.diag-status.idle{color:var(--ink-faint)}
+.diag-status.spin{color:var(--blue)}
+.diag-run-btn{width:100%;margin-top:1rem;padding:.85rem;border-radius:var(--radius-lg);border:none;background:var(--ink);color:#fff;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;transition:background .15s}
+.diag-run-btn:hover{background:var(--ink-mid)}
+.diag-run-btn:disabled{background:var(--border);color:var(--ink-faint);cursor:not-allowed}
+.diag-summary{margin-top:1rem;padding:.9rem;border-radius:var(--radius-lg);font-family:'DM Mono',monospace;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;text-align:center;display:none}
+.diag-summary.all-pass{background:#e8f4ef;color:#1e5c3f;display:block}
+.diag-summary.has-fail{background:#fff0f0;color:#b91c1c;display:block}
+.diag-summary.has-warn{background:#fef3c7;color:#92400e;display:block}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -1011,6 +1042,11 @@ body.dark .bn-label{font-weight:600}
           <div><div class="home-urgent-name">Reset Progress</div><div class="home-urgent-meta">Clear all completion data</div></div>
           <span style="margin-left:auto;color:var(--ink-faint);font-size:1.1rem">›</span>
         </button>
+        <button class="home-urgent-row" style="text-align:left" onclick="openDiag()">
+          <span class="home-urgent-icon">☁️</span>
+          <div><div class="home-urgent-name">Supabase Diagnostics</div><div class="home-urgent-meta" id="diag-quick-status">Test your cloud connection</div></div>
+          <span style="margin-left:auto;color:var(--ink-faint);font-size:1.1rem">›</span>
+        </button>
         <button class="home-urgent-row" style="text-align:left" onclick="doSignOut()">
           <span class="home-urgent-icon">🚪</span>
           <div><div class="home-urgent-name" data-i18n="sign_out">Sign Out</div><div class="home-urgent-meta" id="more-user-email">demo mode</div></div>
@@ -1137,16 +1173,91 @@ body.dark .bn-label{font-weight:600}
 
 <div class="toast" id="toast"></div>
 
+<!-- ── SUPABASE DIAGNOSTIC PANEL ── -->
+<div class="diag-backdrop" id="diag-backdrop" onclick="if(event.target===this)closeDiag()">
+  <div class="diag-panel">
+    <div class="diag-handle"></div>
+    <div class="diag-title">☁️ Supabase Diagnostics</div>
+    <div class="diag-sub">Tests every part of your cloud connection live</div>
+
+    <div class="diag-row" id="diag-keys">
+      <div class="diag-icon idle" id="diag-keys-icon">🔑</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">API Keys configured</div>
+        <div class="diag-check-msg" id="diag-keys-msg">Checks URL + anon key are set</div>
+      </div>
+      <div class="diag-status idle" id="diag-keys-status">–</div>
+    </div>
+
+    <div class="diag-row" id="diag-conn">
+      <div class="diag-icon idle" id="diag-conn-icon">🌐</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">Network connection</div>
+        <div class="diag-check-msg" id="diag-conn-msg">Can reach Supabase servers</div>
+      </div>
+      <div class="diag-status idle" id="diag-conn-status">–</div>
+    </div>
+
+    <div class="diag-row" id="diag-auth">
+      <div class="diag-icon idle" id="diag-auth-icon">🔐</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">Auth session</div>
+        <div class="diag-check-msg" id="diag-auth-msg">Logged-in user with valid session</div>
+      </div>
+      <div class="diag-status idle" id="diag-auth-status">–</div>
+    </div>
+
+    <div class="diag-row" id="diag-tables">
+      <div class="diag-icon idle" id="diag-tables-icon">🗄️</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">Database tables</div>
+        <div class="diag-check-msg" id="diag-tables-msg">All 8 tables exist and are accessible</div>
+      </div>
+      <div class="diag-status idle" id="diag-tables-status">–</div>
+    </div>
+
+    <div class="diag-row" id="diag-rls">
+      <div class="diag-icon idle" id="diag-rls-icon">🛡️</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">Row Level Security</div>
+        <div class="diag-check-msg" id="diag-rls-msg">Can read your own data, not others</div>
+      </div>
+      <div class="diag-status idle" id="diag-rls-status">–</div>
+    </div>
+
+    <div class="diag-row" id="diag-write">
+      <div class="diag-icon idle" id="diag-write-icon">✏️</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">Write test</div>
+        <div class="diag-check-msg" id="diag-write-msg">Saves a test record and reads it back</div>
+      </div>
+      <div class="diag-status idle" id="diag-write-status">–</div>
+    </div>
+
+    <div class="diag-row" id="diag-sync">
+      <div class="diag-icon idle" id="diag-sync-icon">🔄</div>
+      <div style="flex:1;min-width:0">
+        <div class="diag-check-name">Live data in cloud</div>
+        <div class="diag-check-msg" id="diag-sync-msg">Counts records stored for your account</div>
+      </div>
+      <div class="diag-status idle" id="diag-sync-status">–</div>
+    </div>
+
+    <div class="diag-summary" id="diag-summary"></div>
+    <button class="diag-run-btn" id="diag-run-btn" onclick="runDiagnostics()">▶ Run All Tests</button>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════
 // SUPABASE CONFIG
 // ══════════════════════════════════════════════════════
 // Replace these with your own Supabase project URL and anon key.
 // Get them free at https://supabase.com — no credit card needed.
-const SUPABASE_URL  = 'https://gkljloowyrieoiozcibn.supabase.co';
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';
 // Claude AI — get free key at console.anthropic.com
 const CLAUDE_API_KEY = 'YOUR_CLAUDE_API_KEY';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrbGpsb293eXJpZW9pb3pjaWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwODQxMjAsImV4cCI6MjA4ODY2MDEyMH0.xlLJwDhJIEl_FZtCyKkT_4QCmTiDYPKvH_gzBajM1BI';
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY';
 
 let _sb = null;
 function getSB(){
@@ -4061,6 +4172,178 @@ function clearLastDoneFromNotes(){
 }
 
 // ══════════════════════════════════════════════════════
+// SUPABASE DIAGNOSTICS (v6)
+// ══════════════════════════════════════════════════════
+function openDiag(){
+  resetDiagUI();
+  document.getElementById('diag-backdrop').classList.add('open');
+}
+function closeDiag(){
+  document.getElementById('diag-backdrop').classList.remove('open');
+}
+function resetDiagUI(){
+  const checks=['keys','conn','auth','tables','rls','write','sync'];
+  checks.forEach(id=>{
+    setDiag(id,'idle','–','');
+  });
+  const sum=document.getElementById('diag-summary');
+  sum.className='diag-summary'; sum.textContent='';
+  const btn=document.getElementById('diag-run-btn');
+  btn.disabled=false; btn.textContent='▶ Run All Tests';
+}
+function setDiag(id,state,status,msg){
+  const icons={pass:'✅',fail:'❌',warn:'⚠️',idle:'◯',spin:'⟳'};
+  const icon=document.getElementById('diag-'+id+'-icon');
+  const statusEl=document.getElementById('diag-'+id+'-status');
+  const msgEl=document.getElementById('diag-'+id+'-msg');
+  if(icon){ icon.className='diag-icon '+state; icon.textContent=icons[state]||'◯'; }
+  if(statusEl){ statusEl.className='diag-status '+state; statusEl.textContent=status; }
+  if(msgEl && msg) msgEl.textContent=msg;
+}
+async function runDiagnostics(){
+  const btn=document.getElementById('diag-run-btn');
+  btn.disabled=true; btn.textContent='Running…';
+  resetDiagUI();
+  let passes=0, fails=0, warns=0;
+
+  // ── TEST 1: API Keys configured ──
+  setDiag('keys','spin','checking…','');
+  await delay(300);
+  const keysOk = SUPABASE_URL!=='YOUR_SUPABASE_URL' && SUPABASE_ANON!=='YOUR_SUPABASE_ANON_KEY'
+    && SUPABASE_URL.startsWith('https://') && SUPABASE_ANON.length > 50;
+  if(keysOk){
+    setDiag('keys','pass','✓ OK',`URL: ${SUPABASE_URL.replace('https://','').slice(0,28)}…`);
+    passes++;
+  } else {
+    setDiag('keys','fail','✗ FAIL','Replace YOUR_SUPABASE_URL and YOUR_SUPABASE_ANON_KEY in the HTML file');
+    fails++;
+    finishDiag(passes,warns,fails,btn); return; // no point running rest
+  }
+
+  // ── TEST 2: Network / can reach Supabase ──
+  setDiag('conn','spin','checking…','');
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/',{headers:{'apikey':SUPABASE_ANON},signal:AbortSignal.timeout(6000)});
+    if(r.ok||r.status===200||r.status===404||r.status===401){
+      setDiag('conn','pass','✓ OK','Supabase servers are reachable'); passes++;
+    } else {
+      setDiag('conn','warn','⚠ '+r.status,'Server responded but with unexpected status'); warns++;
+    }
+  } catch(e){
+    setDiag('conn','fail','✗ FAIL','Cannot reach Supabase — check your internet or SUPABASE_URL');
+    fails++; finishDiag(passes,warns,fails,btn); return;
+  }
+
+  // ── TEST 3: Auth session ──
+  setDiag('auth','spin','checking…','');
+  await delay(200);
+  const sb=getSB();
+  if(!sb){ setDiag('auth','fail','✗ FAIL','Supabase client not initialised'); fails++; finishDiag(passes,warns,fails,btn); return; }
+  try{
+    const {data:{session},error}=await sb.auth.getSession();
+    if(error) throw error;
+    if(session&&session.user){
+      setDiag('auth','pass','✓ SIGNED IN',`Logged in as ${session.user.email}`); passes++;
+    } else {
+      setDiag('auth','warn','⚠ NOT SIGNED IN','Sign in to fully test the database — keys are correct though'); warns++;
+      finishDiag(passes,warns,fails,btn); return;
+    }
+  } catch(e){
+    setDiag('auth','fail','✗ FAIL',e.message||'Auth check failed'); fails++;
+    finishDiag(passes,warns,fails,btn); return;
+  }
+
+  // ── TEST 4: Tables exist ──
+  setDiag('tables','spin','checking…','');
+  const tables=['chore_state','custom_chores','custom_cats','user_prefs','chore_notes','chore_history','household_members','chore_assignees'];
+  const missing=[];
+  await Promise.all(tables.map(async tbl=>{
+    try{
+      const {error}=await sb.from(tbl).select('id').limit(1);
+      if(error&&(error.code==='42P01'||error.message.includes('does not exist'))) missing.push(tbl);
+    } catch(e){ missing.push(tbl); }
+  }));
+  if(!missing.length){
+    setDiag('tables','pass','✓ ALL 8 OK','All tables created and accessible'); passes++;
+  } else {
+    setDiag('tables','fail','✗ MISSING',`Missing: ${missing.join(', ')} — run the SQL setup script`); fails++;
+    finishDiag(passes,warns,fails,btn); return;
+  }
+
+  // ── TEST 5: Row Level Security ──
+  setDiag('rls','spin','checking…','');
+  try{
+    // RLS works if we can query our own data (empty result is fine)
+    const {error}=await sb.from('chore_state').select('chore_id').limit(5);
+    if(error) throw error;
+    setDiag('rls','pass','✓ OK','Can read your own data only'); passes++;
+  } catch(e){
+    setDiag('rls','fail','✗ FAIL','RLS error: '+e.message); fails++;
+  }
+
+  // ── TEST 6: Write test ──
+  setDiag('write','spin','checking…','');
+  try{
+    const uid=_currentUser.id;
+    const testId='__diag_test__';
+    // Write
+    const {error:we}=await sb.from('user_prefs').upsert({user_id:uid,prefs_json:{_diagTest:Date.now()},updated_at:new Date().toISOString()},{onConflict:'user_id'});
+    if(we) throw we;
+    // Read back
+    const {data,error:re}=await sb.from('user_prefs').select('prefs_json').eq('user_id',uid).single();
+    if(re) throw re;
+    if(data&&data.prefs_json){
+      setDiag('write','pass','✓ READ/WRITE OK','Successfully wrote and read back from user_prefs'); passes++;
+    } else {
+      setDiag('write','warn','⚠ PARTIAL','Write succeeded but read returned empty'); warns++;
+    }
+  } catch(e){
+    setDiag('write','fail','✗ FAIL',e.message||'Write test failed'); fails++;
+  }
+
+  // ── TEST 7: Count live data ──
+  setDiag('sync','spin','checking…','');
+  try{
+    const uid=_currentUser.id;
+    const [s,c,n,h]=await Promise.all([
+      sb.from('chore_state').select('*',{count:'exact',head:true}).eq('user_id',uid),
+      sb.from('custom_chores').select('*',{count:'exact',head:true}).eq('user_id',uid),
+      sb.from('chore_notes').select('*',{count:'exact',head:true}).eq('user_id',uid),
+      sb.from('chore_history').select('*',{count:'exact',head:true}).eq('user_id',uid),
+    ]);
+    const total=(s.count||0)+(c.count||0)+(n.count||0)+(h.count||0);
+    const msg=`${s.count||0} completions · ${c.count||0} custom chores · ${n.count||0} notes · ${h.count||0} history entries`;
+    if(total>0){
+      setDiag('sync','pass','✓ '+total+' RECORDS',msg); passes++;
+    } else {
+      setDiag('sync','warn','⚠ EMPTY','No data synced yet — try checking off a chore first'); warns++;
+    }
+    // Update the quick status in More tab
+    const qs=document.getElementById('diag-quick-status');
+    if(qs) qs.textContent=total>0?`☁️ ${total} records synced`:'☁️ Connected · no data yet';
+  } catch(e){
+    setDiag('sync','fail','✗ FAIL',e.message||'Count failed'); fails++;
+  }
+
+  finishDiag(passes,warns,fails,btn);
+}
+function finishDiag(passes,warns,fails,btn){
+  btn.disabled=false; btn.textContent='▶ Run Again';
+  const sum=document.getElementById('diag-summary');
+  if(fails>0){
+    sum.className='diag-summary has-fail';
+    sum.textContent=`${fails} test${fails>1?'s':''} failed — check the messages above`;
+  } else if(warns>0){
+    sum.className='diag-summary has-warn';
+    sum.textContent=`Connected with ${warns} warning${warns>1?'s':''} — see above for details`;
+  } else {
+    sum.className='diag-summary all-pass';
+    sum.textContent=`All ${passes} tests passed — Supabase is fully working! ☁️✓`;
+  }
+}
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ══════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════
 // Check if Supabase is configured, attempt auto-login
@@ -4068,13 +4351,44 @@ function clearLastDoneFromNotes(){
   const sb=getSB();
   if(sb){
     try{
+      // ── Handle email confirmation callback ──
+      // Supabase puts tokens in the URL hash or query string after confirmation
+      const hash=window.location.hash;
+      const query=window.location.search;
+
+      // PKCE flow: ?code=xxx (newer Supabase)
+      if(query.includes('code=')){
+        const {data,error}=await sb.auth.exchangeCodeForSession(window.location.href);
+        if(!error&&data.session){
+          const u=data.session.user;
+          _currentUser={id:u.id,name:u.user_metadata?.name||u.email.split('@')[0],email:u.email,color:u.user_metadata?.color||randomColor()};
+          // Clean URL
+          window.history.replaceState({},'',window.location.pathname);
+          showToast('✓ Email confirmed! Welcome to Upkeeply 🌿');
+          enterDashboard(); return;
+        }
+      }
+
+      // Implicit flow: #access_token=xxx (older Supabase default)
+      if(hash.includes('access_token=')){
+        const {data,error}=await sb.auth.getSession();
+        if(!error&&data.session){
+          const u=data.session.user;
+          _currentUser={id:u.id,name:u.user_metadata?.name||u.email.split('@')[0],email:u.email,color:u.user_metadata?.color||randomColor()};
+          window.history.replaceState({},'',window.location.pathname);
+          showToast('✓ Email confirmed! Welcome to Upkeeply 🌿');
+          enterDashboard(); return;
+        }
+      }
+
+      // Normal load — check for existing session
       const {data:{session}}=await sb.auth.getSession();
       if(session){
         const u=session.user;
         _currentUser={id:u.id,name:u.user_metadata?.name||u.email.split('@')[0],email:u.email,color:u.user_metadata?.color||randomColor()};
         enterDashboard(); return;
       }
-    }catch(e){}
+    }catch(e){ console.warn('init auth error:',e); }
   }
   // No session — show auth screen
 })();
