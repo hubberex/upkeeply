@@ -754,7 +754,10 @@ body.dark .bn-label{font-weight:600}
   <!-- Profile Dropdown -->
   <div class="profile-dropdown" id="profile-dropdown">
     <div class="profile-dropdown-header">
-      <div class="profile-dropdown-name" id="pd-name">Guest</div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="profile-dropdown-name" id="pd-name" title="Tap to edit name" onclick="startEditName()" style="cursor:pointer;border-bottom:1px dashed var(--border-2)">Guest</div>
+        <button onclick="startEditName()" title="Edit name" style="background:none;border:none;cursor:pointer;padding:0;color:var(--ink-soft);line-height:1;font-size:.75rem">✏️</button>
+      </div>
       <div class="profile-dropdown-email" id="pd-email">demo mode</div>
     </div>
     <button class="profile-dropdown-item" onclick="switchTab('members');toggleProfileDropdown()">
@@ -1337,7 +1340,10 @@ async function sendOtp(isResend = false){
   try {
     const { error } = await sb.auth.signInWithOtp({
       email: _otpEmail,
-      options: { shouldCreateUser: true }
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: undefined,
+      }
     });
     if(error) throw error;
 
@@ -2674,6 +2680,49 @@ function renderProfileDropdown(){
   const av=document.getElementById('nav-avatar');
   av.textContent=getInitials(u.name)||'?';
   av.style.background=u.color||'var(--green)';
+}
+
+function startEditName(){
+  const nameEl = document.getElementById('pd-name');
+  if(nameEl.querySelector('input')) return; // already editing
+  const current = _currentUser?.name || '';
+  nameEl.style.borderBottom = 'none';
+  nameEl.innerHTML = `<input id="pd-name-input" type="text" value="${current}" maxlength="40"
+    style="font-family:'DM Serif Display',serif;font-size:1rem;color:var(--ink);border:none;border-bottom:2px solid var(--green);background:transparent;outline:none;width:140px;padding:0"
+    onkeydown="if(event.key==='Enter') saveEditName(); if(event.key==='Escape') cancelEditName();"
+    onblur="saveEditName()">`;
+  const inp = document.getElementById('pd-name-input');
+  inp.focus(); inp.select();
+}
+
+async function saveEditName(){
+  const inp = document.getElementById('pd-name-input');
+  if(!inp) return;
+  const newName = inp.value.trim();
+  if(!newName || newName === _currentUser?.name){
+    cancelEditName(); return;
+  }
+  if(_currentUser) _currentUser.name = newName;
+
+  // Persist to Supabase if logged in
+  const sb = getSB();
+  if(sb && !_isDemo){
+    try { await sb.auth.updateUser({ data: { name: newName } }); } catch(e) {}
+  }
+
+  renderProfileDropdown();
+  // Update greeting on home tab
+  const greetEl = document.getElementById('d-greet');
+  if(greetEl){
+    const firstName = newName.split(' ')[0];
+    const tod = typeof getTimeOfDay === 'function' ? getTimeOfDay() : 'day';
+    greetEl.innerHTML = `${t('greet_good')} ${t('greet_'+tod)},<br><em>${firstName}.</em>`;
+  }
+  showToast('Name updated ✓');
+}
+
+function cancelEditName(){
+  renderProfileDropdown();
 }
 function toggleProfileDropdown(forceClose){
   const dd=document.getElementById('profile-dropdown');
