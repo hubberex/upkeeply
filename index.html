@@ -333,12 +333,14 @@ body.dark .bn-label{font-weight:600}
 .ch-note-chip{font-family:'DM Mono',monospace;font-size:.54rem;letter-spacing:.05em;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:var(--bg);color:var(--ink-soft);white-space:nowrap;flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:3px}
 .ch-note-chip:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg)}
 /* Action buttons — much bigger */
-.chore-actions{display:flex;gap:5px;align-items:flex-start;padding-top:0;opacity:1;transition:opacity .15s}
+.chore-actions{display:flex;gap:5px;align-items:flex-start;padding-top:0;opacity:1;transition:opacity .15s;flex-shrink:0}
 .chore-row:hover .chore-actions{opacity:1}
-.ch-action-btn{width:36px;height:36px;border-radius:var(--radius-lg);border:1.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);transition:all .15s;flex-shrink:0}
+.ch-action-btn{width:34px;height:34px;border-radius:var(--radius-lg);border:1.5px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);transition:all .15s;flex-shrink:0}
 .ch-action-btn:hover,.ch-action-btn:active{background:var(--ink);border-color:var(--ink);color:#fff}
 .ch-action-btn.del:hover,.ch-action-btn.del:active{background:var(--red);border-color:var(--red);color:#fff}
-.ch-action-btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ch-action-btn svg{width:14px;height:14px;stroke:var(--ink-soft);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block;pointer-events:none}
+.ch-action-btn:hover svg,.ch-action-btn:active svg{stroke:#fff}
+.ch-action-btn.del:hover svg,.ch-action-btn.del:active svg{stroke:#fff}
 .chore-row.done .ch-name{color:var(--ink-faint);text-decoration:line-through;text-decoration-color:var(--border-2)}
 .chore-row.done .ch-desc{color:var(--ink-faint)}
 .chore-row.done .freq{opacity:.35}
@@ -647,24 +649,80 @@ body.dark .bn-label{font-weight:600}
     <div class="auth-logo">Upkeeply</div>
     <div class="auth-tagline">Home Care, Simplified</div>
     <div class="auth-card">
-      <div class="auth-tabs">
-        <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
-        <button class="auth-tab" onclick="switchAuthTab('signup')">Create Account</button>
+
+      <!-- ── STEP 1: Email entry ── -->
+      <div id="otp-step-email">
+        <div style="font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:1.1rem">Sign in or create account</div>
+        <div class="auth-field">
+          <label>Your email</label>
+          <input type="email" id="otp-email" placeholder="you@example.com" autocomplete="email"
+            onkeydown="if(event.key==='Enter') sendOtp()">
+        </div>
+        <div class="auth-err" id="otp-email-err"></div>
+        <button class="auth-btn auth-btn-primary" onclick="sendOtp()" id="otp-send-btn">
+          Send One-Time Code →
+        </button>
+        <div class="auth-note" style="margin-top:.75rem">We'll email you a 6-digit code. No password needed.</div>
       </div>
-      <div id="auth-login">
-        <div class="auth-field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"></div>
-        <div class="auth-field"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"></div>
-        <div class="auth-err" id="login-err"></div>
-        <button class="auth-btn auth-btn-primary" onclick="doLogin()" id="login-btn">Sign In</button>
+
+      <!-- ── STEP 2: Code entry ── -->
+      <div id="otp-step-code" style="display:none">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1.25rem">
+          <button onclick="otpBack()" style="background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:1rem;padding:0;line-height:1">←</button>
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)">Check your email</div>
+            <div style="font-size:.82rem;color:var(--ink-mid);margin-top:.15rem">Code sent to <strong id="otp-sent-to" style="color:var(--ink)"></strong></div>
+          </div>
+        </div>
+        <div class="auth-field">
+          <label>6-digit code</label>
+          <input type="text" id="otp-code" placeholder="000000" maxlength="6"
+            inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
+            style="font-family:'DM Mono',monospace;font-size:1.5rem;letter-spacing:.3em;text-align:center"
+            onkeydown="if(event.key==='Enter') verifyOtp()"
+            oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        </div>
+        <div class="auth-err" id="otp-code-err"></div>
+        <button class="auth-btn auth-btn-primary" onclick="verifyOtp()" id="otp-verify-btn">
+          Verify Code →
+        </button>
+        <div style="margin-top:.85rem;text-align:center">
+          <button onclick="sendOtp(true)" id="otp-resend-btn"
+            style="background:none;border:none;cursor:pointer;font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px">
+            Resend code
+          </button>
+        </div>
       </div>
-      <div id="auth-signup" style="display:none">
-        <div class="auth-field"><label>Name</label><input type="text" id="signup-name" placeholder="Your name" autocomplete="name"></div>
-        <div class="auth-field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"></div>
-        <div class="auth-field"><label>Password</label><input type="password" id="signup-pw" placeholder="Min. 8 characters" autocomplete="new-password"></div>
-        <div class="auth-err" id="signup-err"></div>
-        <button class="auth-btn auth-btn-primary" onclick="doSignup()" id="signup-btn">Create Account</button>
-      </div>
+
       <div class="auth-divider">or</div>
+
+      <!-- Password fallback (collapsible) -->
+      <div id="pw-fallback-toggle" style="text-align:center;margin-bottom:.5rem">
+        <button onclick="togglePwFallback()"
+          style="background:none;border:none;cursor:pointer;font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);text-decoration:underline;text-underline-offset:3px">
+          Use password instead
+        </button>
+      </div>
+      <div id="pw-fallback" style="display:none">
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+          <button class="auth-tab" onclick="switchAuthTab('signup')">Register</button>
+        </div>
+        <div id="auth-login">
+          <div class="auth-field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"></div>
+          <div class="auth-field"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"></div>
+          <div class="auth-err" id="login-err"></div>
+          <button class="auth-btn auth-btn-primary" onclick="doLogin()" id="login-btn">Sign In</button>
+        </div>
+        <div id="auth-signup" style="display:none">
+          <div class="auth-field"><label>Name</label><input type="text" id="signup-name" placeholder="Your name" autocomplete="name"></div>
+          <div class="auth-field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"></div>
+          <div class="auth-field"><label>Password</label><input type="password" id="signup-pw" placeholder="Min. 8 characters" autocomplete="new-password"></div>
+          <div class="auth-err" id="signup-err"></div>
+          <button class="auth-btn auth-btn-primary" onclick="doSignup()" id="signup-btn">Create Account</button>
+        </div>
+      </div>
+
       <button class="auth-demo" onclick="demoMode()">Continue as Guest (Demo)</button>
       <div class="auth-note">By signing in you agree to Upkeeply's <a href="#">Terms</a> &amp; <a href="#">Privacy Policy</a>.<br>Accounts sync your household across devices.</div>
     </div>
@@ -1236,6 +1294,119 @@ function getSB(){
 // ══════════════════════════════════════════════════════
 let _currentUser = null; // { id, name, email, color }
 let _isDemo = false;
+
+// ══════════════════════════════════════════════════════
+// OTP AUTH
+// ══════════════════════════════════════════════════════
+let _otpEmail = '';
+
+function togglePwFallback(){
+  const el = document.getElementById('pw-fallback');
+  const toggle = document.getElementById('pw-fallback-toggle');
+  const shown = el.style.display !== 'none';
+  el.style.display = shown ? 'none' : 'block';
+  toggle.querySelector('button').textContent = shown ? 'Use password instead' : 'Hide password login';
+}
+
+async function sendOtp(isResend = false){
+  const emailEl = document.getElementById('otp-email');
+  const email = emailEl ? emailEl.value.trim() : _otpEmail;
+  const err = document.getElementById('otp-email-err');
+  const btn = document.getElementById('otp-send-btn');
+  const resendBtn = document.getElementById('otp-resend-btn');
+
+  if(!email || !email.includes('@')){
+    if(err) { err.textContent = 'Please enter a valid email address.'; }
+    return;
+  }
+  _otpEmail = email;
+
+  const sb = getSB();
+  if(!sb){
+    if(err) err.textContent = 'Supabase not configured — use Demo mode.';
+    return;
+  }
+
+  if(isResend){
+    if(resendBtn){ resendBtn.disabled = true; resendBtn.textContent = 'Sending...'; }
+  } else {
+    if(btn){ btn.disabled = true; btn.textContent = 'Sending...'; }
+    if(err) err.textContent = '';
+  }
+
+  try {
+    const { error } = await sb.auth.signInWithOtp({
+      email: _otpEmail,
+      options: { shouldCreateUser: true }
+    });
+    if(error) throw error;
+
+    // Switch to code entry step
+    document.getElementById('otp-step-email').style.display = 'none';
+    document.getElementById('otp-step-code').style.display = 'block';
+    document.getElementById('otp-sent-to').textContent = _otpEmail;
+    document.getElementById('otp-code').value = '';
+    document.getElementById('otp-code-err').textContent = '';
+    setTimeout(() => document.getElementById('otp-code').focus(), 100);
+
+    if(isResend && resendBtn){
+      resendBtn.textContent = 'Code sent ✓';
+      setTimeout(() => { resendBtn.disabled = false; resendBtn.textContent = 'Resend code'; }, 3000);
+    }
+  } catch(e) {
+    const msg = e.message || 'Failed to send code. Try again.';
+    if(isResend){ if(resendBtn){ resendBtn.disabled=false; resendBtn.textContent='Resend code'; } }
+    else { if(err) err.textContent = msg; }
+  }
+
+  if(btn){ btn.disabled = false; btn.textContent = 'Send One-Time Code →'; }
+}
+
+async function verifyOtp(){
+  const code = document.getElementById('otp-code').value.trim();
+  const err  = document.getElementById('otp-code-err');
+  const btn  = document.getElementById('otp-verify-btn');
+
+  err.textContent = '';
+  if(code.length !== 6){ err.textContent = 'Please enter the full 6-digit code.'; return; }
+
+  const sb = getSB();
+  if(!sb){ err.textContent = 'Supabase not configured.'; return; }
+
+  btn.disabled = true; btn.textContent = 'Verifying...';
+
+  try {
+    const { data, error } = await sb.auth.verifyOtp({
+      email: _otpEmail,
+      token: code,
+      type: 'email'
+    });
+    if(error) throw error;
+
+    const u = data.user;
+    const name = u.user_metadata?.name || _otpEmail.split('@')[0];
+    const color = u.user_metadata?.color || randomColor();
+
+    // First time user — save name to metadata
+    if(!u.user_metadata?.name){
+      await sb.auth.updateUser({ data: { name, color } });
+    }
+
+    _currentUser = { id: u.id, name, email: u.email, color };
+    enterDashboard();
+  } catch(e) {
+    err.textContent = e.message?.includes('expired') || e.message?.includes('invalid')
+      ? 'Invalid or expired code. Please try again or resend.'
+      : e.message || 'Verification failed.';
+    btn.disabled = false; btn.textContent = 'Verify Code →';
+  }
+}
+
+function otpBack(){
+  document.getElementById('otp-step-code').style.display = 'none';
+  document.getElementById('otp-step-email').style.display = 'block';
+  document.getElementById('otp-email-err').textContent = '';
+}
 
 function switchAuthTab(tab){
   document.querySelectorAll('.auth-tab').forEach((t,i)=>t.classList.toggle('active',i===(tab==='login'?0:1)));
